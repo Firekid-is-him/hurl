@@ -1,0 +1,12 @@
+src
+tests
+dist_cjs
+dist_esm
+*.map
+.gitignore
+.eslintrc*
+.prettierrc*
+tsconfig.json
+vitest.config.ts
+llms.txt
+README.md
