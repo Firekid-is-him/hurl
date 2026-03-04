@@ -12,6 +12,11 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/firekid-is-him/hurl/ci.yml?style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/firekid-is-him/hurl/actions)
 [![Website](https://img.shields.io/badge/website-hurl.firekidofficial.name.ng-black?style=flat-square&logo=googlechrome&logoColor=white)](https://hurl.firekidofficial.name.ng)
 
+> Zero-dependency HTTP client for Node.js and edge runtimes.
+> Built on fetch. The modern replacement for **axios**, **request**, **got**, **node-fetch**, and **ky**.
+> Works on Cloudflare Workers, Vercel Edge, Deno, and Bun.
+
+
 A modern HTTP client for Node.js and edge runtimes.  
 Zero dependencies. Full TypeScript support. Under 3KB gzipped.
 
@@ -400,6 +405,21 @@ Clears the entire in-memory response cache.
 import { clearCache } from '@firekid/hurl'
 clearCache()
 ```
+
+
+## Why not axios, got, or ky?
+
+**axios** — 35KB, no edge runtime support, no built-in retry, no upload progress, no request deduplication.
+
+**got** — ESM only since v12, breaks CommonJS projects, no browser support.
+
+**ky** — browser only, no Node.js support, no proxy, no streaming.
+
+**node-fetch** — no retry, no interceptors, no auth helpers, no progress tracking.
+
+**request** — deprecated since 2020, callback-based, no Promise support.
+
+**@firekid/hurl** — built on native fetch, works everywhere, ships everything above built in, zero dependencies.
 
 ## License
 
