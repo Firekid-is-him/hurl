@@ -429,6 +429,20 @@ MIT
 
 <div align="center">
 
-Built by Firekid♥️ — All rights reserved.
+## Contributors
+
+[
+
+![HeavstalTech](https://github.com/HeavstalTech.png?size=20)
+
+](https://github.com/HeavstalTech) [HeavstalTech](https://github.com/HeavstalTech) — signal fix, cache hardening, test suite
+
+---
+
+Built by [
+
+![Firekid](https://github.com/Firekid-is-him.png?size=20)
+
+](https://github.com/Firekid-is-him) [Firekid](https://github.com/Firekid-is-him) ♥️ — All rights reserved.
 
 </div>
