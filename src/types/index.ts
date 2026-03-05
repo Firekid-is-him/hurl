@@ -37,10 +37,10 @@ export type HurlRequestOptions = {
   cache?: CacheConfig
   signal?: AbortSignal
   followRedirects?: boolean
-  maxRedirects?: number
   onUploadProgress?: ProgressCallback
   onDownloadProgress?: ProgressCallback
   stream?: boolean
+  throwOnError?: boolean
   debug?: boolean
   requestId?: string
   deduplicate?: boolean
