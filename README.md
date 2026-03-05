@@ -16,7 +16,6 @@
 > Built on fetch. The modern replacement for **axios**, **request**, **got**, **node-fetch**, and **ky**.
 > Works on Cloudflare Workers, Vercel Edge, Deno, and Bun.
 
-
 A modern HTTP client for Node.js and edge runtimes.  
 Zero dependencies. Full TypeScript support. Under 3KB gzipped.
 
@@ -406,7 +405,6 @@ import { clearCache } from '@firekid/hurl'
 clearCache()
 ```
 
-
 ## Why not axios, got, or ky?
 
 **axios** — 35KB, no edge runtime support, no built-in retry, no upload progress, no request deduplication.
@@ -427,22 +425,14 @@ MIT
 
 ---
 
-<div align="center">
-
 ## Contributors
 
-[
-
-![HeavstalTech](https://github.com/HeavstalTech.png?size=20)
-
-](https://github.com/HeavstalTech) [HeavstalTech](https://github.com/HeavstalTech) — signal fix, cache hardening, test suite
+[![HeavstalTech](https://github.com/HeavstalTech.png?size=32)](https://github.com/HeavstalTech) **[HeavstalTech](https://github.com/HeavstalTech)** — signal fix, cache hardening, test suite
 
 ---
 
-Built by [
+<div align="center">
 
-![Firekid](https://github.com/Firekid-is-him.png?size=20)
-
-](https://github.com/Firekid-is-him) [Firekid](https://github.com/Firekid-is-him) ♥️ — All rights reserved.
+Built by [![Firekid](https://github.com/Firekid-is-him.png?size=32)](https://github.com/Firekid-is-him) **[Firekid](https://github.com/Firekid-is-him)** ♥️ — All rights reserved.
 
 </div>
