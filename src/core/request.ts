@@ -7,8 +7,6 @@ import { getCacheKey, getFromCache, setInCache } from '../features/cache.js'
 import { getInFlight, setInFlight } from '../features/dedup.js'
 import { debugRequest, debugResponse, debugError } from '../features/debug.js'
 import { wrapBodyWithUploadProgress } from '../features/progress.js'
-import { resolveProxyOptions } from '../features/proxy.js' // FIX: Imported proxy resolver
-
 
 function generateId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -45,7 +43,7 @@ function buildUrl(base: string, url: string, query?: Record<string, string | num
   if (!query || Object.keys(query).length === 0) return fullUrl
 
   const params = new URLSearchParams()
-  for (const[k, v] of Object.entries(query)) {
+  for (const [k, v] of Object.entries(query)) {
     params.set(k, String(v))
   }
   return `${fullUrl}?${params.toString()}`
@@ -53,7 +51,6 @@ function buildUrl(base: string, url: string, query?: Record<string, string | num
 
 function isStreamLike(body: unknown): boolean {
   if (body instanceof ReadableStream) return true
-  
   if (body !== null && typeof body === 'object' && typeof (body as any).pipe === 'function') return true
   return false
 }
@@ -70,7 +67,6 @@ function buildHeaders(
   const body = options.body
 
   // Only set application/json for plain objects and arrays.
-  // Do NOT set it for FormData, Blob, streams, or ArrayBuffer, those have their own types.
   if (
     body !== null &&
     body !== undefined &&
@@ -94,7 +90,6 @@ function buildBody(body: unknown): BodyInit | undefined {
   if (typeof body === 'string') return body
   
   if (body instanceof ReadableStream) return body as BodyInit
-  
   if (typeof (body as any).pipe === 'function') return body as unknown as BodyInit
   
   return JSON.stringify(body)
@@ -110,7 +105,6 @@ export async function executeRequest<T>(
   const start = Date.now()
   const retryConfig = normalizeRetry(options.retry ?? defaults.retry)
   const debug = options.debug ?? defaults.debug ?? false
-  // throwOnError defaults to true, set to false to get the response even on 4xx/5xx
   const throwOnError = options.throwOnError ?? defaults.throwOnError ?? true
 
   const query = { ...defaults.query, ...options.query } as Record<string, string | number | boolean>
@@ -122,9 +116,11 @@ export async function executeRequest<T>(
 
   const fullUrl = buildUrl(defaults.baseUrl ?? '', url, Object.keys(query).length > 0 ? query : undefined)
 
-  // FIX: Resolve the proxy options specific to the current runtime (Node.js Undici or Bun)
-  const proxyConfig = options.proxy ?? defaults.proxy
-  const fetchProxyOptions = await resolveProxyOptions(proxyConfig, debug)
+  if (options.proxy ?? defaults.proxy) {
+    if (debug) {
+      console.warn('[hurl] proxy option is not supported with native fetch. Use HTTP_PROXY/HTTPS_PROXY env vars in Node.js.')
+    }
+  }
 
   const cacheConfig = options.cache ?? defaults.cache
   const shouldCache = !!cacheConfig && !cacheConfig.bypass && method === 'GET'
@@ -151,18 +147,15 @@ export async function executeRequest<T>(
     let timedOut = false
 
     const controller = new AbortController()
-    
-    // FIX: Extracted signal to a local constant to fix TS18048 closure warning
     const signal = options.signal
 
-    // FIX: Check if the signal is already aborted before attaching the listener to prevent hanging retries
     let abortListener: (() => void) | null = null
     if (signal) {
       if (signal.aborted) {
         controller.abort(signal.reason)
       } else {
         abortListener = () => controller.abort(signal.reason)
-        signal.addEventListener('abort', abortListener)
+        signal.addEventListener('abort', abortListener, { once: true })
       }
     }
 
@@ -174,7 +167,6 @@ export async function executeRequest<T>(
     }
 
     try {
-      
       let requestBody = buildBody(options.body)
       const onUploadProgress = options.onUploadProgress ?? defaults.onUploadProgress
 
@@ -197,8 +189,7 @@ export async function executeRequest<T>(
         body: requestBody,
         signal: controller.signal,
         redirect: (options.followRedirects ?? true) ? 'follow' : 'manual',
-        ...fetchProxyOptions // FIX: Inject the dynamically resolved proxy dispatcher/config
-      } as RequestInit)
+      })
 
       const data = await parseResponseBody(
         response,
@@ -208,7 +199,6 @@ export async function executeRequest<T>(
         options.onDownloadProgress ?? defaults.onDownloadProgress
       ) as T
 
-      
       if (!response.ok && throwOnError) {
         throw buildHttpError({
           status: response.status,
@@ -238,7 +228,6 @@ export async function executeRequest<T>(
         (err as Error).name === 'AbortError' ||
         (err as any).code === 'ABORT_ERR'
       ) {
-        
         hurlError = timedOut
           ? buildTimeoutError(timeout!, requestId)
           : buildAbortError(requestId)
@@ -258,7 +247,6 @@ export async function executeRequest<T>(
       throw hurlError
     } finally {
       if (timeoutId) clearTimeout(timeoutId)
-      // FIX: Check against our constant instead of options.signal
       if (abortListener && signal) {
         signal.removeEventListener('abort', abortListener)
       }
