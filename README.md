@@ -429,6 +429,6 @@ MIT
 
 <div align="center">
 
-Built by Firekid♥️ — All rights reserved
+Built by Firekid♥️ — All rights reserved.
 
 </div>
