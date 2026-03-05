@@ -108,7 +108,9 @@ describe('hurl', () => {
   })
 
   it('throws a HurlError on 4xx/5xx HTTP errors', async () => {
-    fetchMock.mockReturnValueOnce(mockResponse({ error: 'Not Found' }, 404))
+    // FIX: Swapped mockReturnValueOnce to mockReturnValue because hurl.get is called TWICE in this test block.
+    // If it was only Once, the second call returns undefined and crashes internally as a NETWORK_ERROR.
+    fetchMock.mockReturnValue(mockResponse({ error: 'Not Found' }, 404))
     
     await expect(hurl.get('https://api.example.com/404')).rejects.toThrowError(HurlError)
     
