@@ -7,6 +7,7 @@ import { getCacheKey, getFromCache, setInCache } from '../features/cache.js'
 import { getInFlight, setInFlight } from '../features/dedup.js'
 import { debugRequest, debugResponse, debugError } from '../features/debug.js'
 import { wrapBodyWithUploadProgress } from '../features/progress.js'
+import { resolveProxyOptions } from '../features/proxy.js' // FIX: Imported proxy resolver
 
 
 function generateId(): string {
@@ -44,7 +45,7 @@ function buildUrl(base: string, url: string, query?: Record<string, string | num
   if (!query || Object.keys(query).length === 0) return fullUrl
 
   const params = new URLSearchParams()
-  for (const [k, v] of Object.entries(query)) {
+  for (const[k, v] of Object.entries(query)) {
     params.set(k, String(v))
   }
   return `${fullUrl}?${params.toString()}`
@@ -121,12 +122,9 @@ export async function executeRequest<T>(
 
   const fullUrl = buildUrl(defaults.baseUrl ?? '', url, Object.keys(query).length > 0 ? query : undefined)
 
-  
-  if (options.proxy ?? defaults.proxy) {
-    if (debug) {
-      console.warn('[hurl] proxy option is not supported with native fetch. Use HTTP_PROXY/HTTPS_PROXY env vars in Node.js.')
-    }
-  }
+  // FIX: Resolve the proxy options specific to the current runtime (Node.js Undici or Bun)
+  const proxyConfig = options.proxy ?? defaults.proxy
+  const fetchProxyOptions = await resolveProxyOptions(proxyConfig, debug)
 
   const cacheConfig = options.cache ?? defaults.cache
   const shouldCache = !!cacheConfig && !cacheConfig.bypass && method === 'GET'
@@ -196,7 +194,8 @@ export async function executeRequest<T>(
         body: requestBody,
         signal: controller.signal,
         redirect: (options.followRedirects ?? true) ? 'follow' : 'manual',
-      })
+        ...fetchProxyOptions // FIX: Inject the dynamically resolved proxy dispatcher/config
+      } as RequestInit)
 
       const data = await parseResponseBody(
         response,
