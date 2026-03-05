@@ -1,4 +1,17 @@
-# Changelog
+## 1.0.4
+
+- Fixed stream buffering — response body no longer loaded into memory when `stream: true`, body is returned as raw `ReadableStream` for the caller to pipe directly to disk
+- Fixed `buildBody` not handling `ReadableStream` or Node.js `Readable` streams — upload streaming now works correctly
+- Fixed `onUploadProgress` never firing — implemented via `TransformStream` wrapping the request body
+- Fixed `onDownloadProgress` firing on text and JSON — progress tracking now only fires for binary content types (images, video, audio, octet-stream)
+- Fixed `trackDownloadProgress` buffering entire response — now returns `ArrayBuffer` directly instead of decoding to string
+- Fixed `options.signal` abort listener never removed — listener is now cleaned up in `finally` block preventing memory leak on long-lived signals
+- Fixed `btoa` breaking on non-ASCII passwords in Basic auth — replaced with `Buffer.from` in Node.js with proper UTF-8 fallback for edge runtimes and browsers
+- Fixed `Math.random` request IDs — now uses `crypto.randomUUID()` with `Math.random` fallback for environments that don't support it
+- Fixed `Content-Type: application/json` being set on stream bodies incorrectly — streams, Blobs, and ArrayBuffers are now excluded
+- Fixed `stream` option not being passed to `parseResponseBody` — was being silently ignored
+- Fixed proxy option silently doing nothing — now logs a clear warning in debug mode pointing to `HTTP_PROXY`/`HTTPS_PROXY` env vars
+- Added `throwOnError` option — set to `false` to receive 4xx and 5xx responses without throwing, defaults to `true`
 
 ## 1.0.3
 
@@ -9,14 +22,11 @@
 
 ## 1.0.2
 
-- Fixed HEAD request parsing
-- Fixed timeout detection
-- Fixed request deduplication timing
-- Bumped version
+- Fixed exports order in package.json — types condition moved before import and require
 
 ## 1.0.1
 
-- Fixed exports order in package.json — types condition moved before import and require
+- Fixed SSRF vulnerability in buildUrl — absolute URLs with different origins are now rejected to prevent auth token leakage
 
 ## 1.0.0
 
