@@ -3,11 +3,11 @@ import { ProgressCallback } from '../types/index.js'
 export async function trackDownloadProgress(
   response: Response,
   onProgress: ProgressCallback
-): Promise<string> {
+): Promise<ArrayBuffer> {
   const reader = response.body?.getReader()
   const total = parseInt(response.headers.get('content-length') ?? '0', 10)
 
-  if (!reader) return response.text()
+  if (!reader) return new ArrayBuffer(0)
 
   const chunks: Uint8Array[] = []
   let loaded = 0
@@ -17,7 +17,7 @@ export async function trackDownloadProgress(
     if (done) break
 
     chunks.push(value)
-    loaded += value.length
+    loaded += value.byteLength
     onProgress({
       loaded,
       total,
@@ -25,16 +25,50 @@ export async function trackDownloadProgress(
     })
   }
 
-  const all = new Uint8Array(loaded)
+  
+  const merged = new Uint8Array(loaded)
   let offset = 0
   for (const chunk of chunks) {
-    all.set(chunk, offset)
-    offset += chunk.length
+    merged.set(chunk, offset)
+    offset += chunk.byteLength
   }
 
-  return new TextDecoder().decode(all)
+  return merged.buffer
 }
 
-export function wrapFormDataWithProgress(formData: FormData, onProgress: ProgressCallback): FormData {
-  return formData
+export function wrapBodyWithUploadProgress(
+  body: Exclude<BodyInit, FormData>,
+  onProgress: ProgressCallback
+): ReadableStream<Uint8Array> {
+
+  let total = 0
+  if (typeof body === 'string') {
+    total = new TextEncoder().encode(body).byteLength
+  } else if (body instanceof ArrayBuffer) {
+    total = body.byteLength
+  } else if (body instanceof Blob) {
+    total = body.size
+  }
+ 
+  let loaded = 0
+
+  
+  const source: ReadableStream<Uint8Array> =
+    body instanceof ReadableStream
+      ? (body as ReadableStream<Uint8Array>)
+      : (new Response(body as BodyInit).body as ReadableStream<Uint8Array>)
+
+  return source.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        loaded += chunk.byteLength
+        onProgress({
+          loaded,
+          total,
+          percent: total > 0 ? Math.round((loaded / total) * 100) : 0,
+        })
+        controller.enqueue(chunk)
+      },
+    })
+  )
 }
