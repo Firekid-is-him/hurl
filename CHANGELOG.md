@@ -1,3 +1,19 @@
+## 1.0.5 — 2026-03-05
+
+### Fixed
+- Signal pre-check to prevent hanging retries on already-aborted signals
+- Added `{ once: true }` to abort listener for automatic self-cleanup
+- LRU cache limit (1000 entries) to prevent unbounded memory growth
+- ArrayBuffer deep clone on cache read to prevent mutation vulnerabilities
+
+### Improved
+- Test suite now uses properly mocked fetch for reliable CI
+
+### Contributors
+- HeavstalTech: signal fix, cache hardening, test suite
+
+
+
 ## 1.0.4
 
 - Fixed stream buffering — response body no longer loaded into memory when `stream: true`, body is returned as raw `ReadableStream` for the caller to pipe directly to disk
