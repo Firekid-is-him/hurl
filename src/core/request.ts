@@ -6,12 +6,17 @@ import { normalizeRetry, shouldRetry, waitForRetry } from '../features/retry.js'
 import { getCacheKey, getFromCache, setInCache } from '../features/cache.js'
 import { getInFlight, setInFlight } from '../features/dedup.js'
 import { debugRequest, debugResponse, debugError } from '../features/debug.js'
+import { wrapBodyWithUploadProgress } from '../features/progress.js'
 
-function generateId() {
+
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
   return Math.random().toString(36).slice(2, 10)
 }
 
-function buildUrl(base: string, url: string, query?: Record<string, string | number | boolean>) {
+function buildUrl(base: string, url: string, query?: Record<string, string | number | boolean>): string {
   let fullUrl: string
 
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -45,6 +50,13 @@ function buildUrl(base: string, url: string, query?: Record<string, string | num
   return `${fullUrl}?${params.toString()}`
 }
 
+function isStreamLike(body: unknown): boolean {
+  if (body instanceof ReadableStream) return true
+  
+  if (body !== null && typeof body === 'object' && typeof (body as any).pipe === 'function') return true
+  return false
+}
+
 function buildHeaders(
   options: HurlRequestOptions,
   defaults: HurlDefaults
@@ -55,7 +67,18 @@ function buildHeaders(
   }
 
   const body = options.body
-  if (body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof Blob)) {
+
+  // Only set application/json for plain objects and arrays.
+  // Do NOT set it for FormData, Blob, streams, or ArrayBuffer, those have their own types.
+  if (
+    body !== null &&
+    body !== undefined &&
+    typeof body === 'object' &&
+    !(body instanceof FormData) &&
+    !(body instanceof Blob) &&
+    !(body instanceof ArrayBuffer) &&
+    !isStreamLike(body)
+  ) {
     headers['Content-Type'] = headers['Content-Type'] ?? 'application/json'
   }
 
@@ -64,17 +87,16 @@ function buildHeaders(
 
 function buildBody(body: unknown): BodyInit | undefined {
   if (body === undefined || body === null) return undefined
-  if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer) return body as BodyInit
+  if (body instanceof FormData) return body
+  if (body instanceof Blob) return body
+  if (body instanceof ArrayBuffer) return body
   if (typeof body === 'string') return body
+  
+  if (body instanceof ReadableStream) return body as BodyInit
+  
+  if (typeof (body as any).pipe === 'function') return body as unknown as BodyInit
+  
   return JSON.stringify(body)
-}
-
-function isTimeoutAbort(err: unknown, timedOut: boolean): boolean {
-  if (timedOut) return true
-  const e = err as any
-  if (e?.name === 'TimeoutError') return true
-  if (e?.name === 'AbortError' && e?.message?.includes('timeout')) return true
-  return false
 }
 
 export async function executeRequest<T>(
@@ -87,6 +109,8 @@ export async function executeRequest<T>(
   const start = Date.now()
   const retryConfig = normalizeRetry(options.retry ?? defaults.retry)
   const debug = options.debug ?? defaults.debug ?? false
+  // throwOnError defaults to true, set to false to get the response even on 4xx/5xx
+  const throwOnError = options.throwOnError ?? defaults.throwOnError ?? true
 
   const query = { ...defaults.query, ...options.query } as Record<string, string | number | boolean>
   const headers = buildHeaders(options, defaults)
@@ -96,6 +120,13 @@ export async function executeRequest<T>(
   if (auth) applyAuth(headers, query as Record<string, string>, auth)
 
   const fullUrl = buildUrl(defaults.baseUrl ?? '', url, Object.keys(query).length > 0 ? query : undefined)
+
+  
+  if (options.proxy ?? defaults.proxy) {
+    if (debug) {
+      console.warn('[hurl] proxy option is not supported with native fetch. Use HTTP_PROXY/HTTPS_PROXY env vars in Node.js.')
+    }
+  }
 
   const cacheConfig = options.cache ?? defaults.cache
   const shouldCache = !!cacheConfig && !cacheConfig.bypass && method === 'GET'
@@ -110,7 +141,6 @@ export async function executeRequest<T>(
   }
 
   const deduplicate = options.deduplicate ?? defaults.deduplicate ?? false
-
   if (deduplicate && method === 'GET') {
     const inflight = getInFlight(fullUrl)
     if (inflight) return inflight as Promise<HurlResponse<T>>
@@ -124,8 +154,11 @@ export async function executeRequest<T>(
 
     const controller = new AbortController()
 
+    
+    let abortListener: (() => void) | null = null
     if (options.signal) {
-      options.signal.addEventListener('abort', () => controller.abort())
+      abortListener = () => controller.abort()
+      options.signal.addEventListener('abort', abortListener)
     }
 
     if (timeout) {
@@ -136,19 +169,41 @@ export async function executeRequest<T>(
     }
 
     try {
+      
+      let requestBody = buildBody(options.body)
+      const onUploadProgress = options.onUploadProgress ?? defaults.onUploadProgress
+
+      if (requestBody !== undefined && onUploadProgress) {
+        if (options.body instanceof FormData) {
+          if (debug) {
+            console.warn('[hurl] onUploadProgress is not supported for FormData bodies. Use XMLHttpRequest for FormData upload progress.')
+          }
+        } else {
+          requestBody = wrapBodyWithUploadProgress(
+            requestBody as Exclude<BodyInit, FormData>,
+            onUploadProgress
+          )
+        }
+      }
+
       const response = await fetch(fullUrl, {
         method,
         headers,
-        body: buildBody(options.body),
+        body: requestBody,
         signal: controller.signal,
         redirect: (options.followRedirects ?? true) ? 'follow' : 'manual',
       })
 
-      if (timeoutId) clearTimeout(timeoutId)
+      const data = await parseResponseBody(
+        response,
+        requestId,
+        method,
+        options.stream ?? false,
+        options.onDownloadProgress ?? defaults.onDownloadProgress
+      ) as T
 
-      const data = await parseResponseBody(response, requestId, options.onDownloadProgress, method) as T
-
-      if (!response.ok) {
+      
+      if (!response.ok && throwOnError) {
         throw buildHttpError({
           status: response.status,
           statusText: response.statusText,
@@ -169,15 +224,17 @@ export async function executeRequest<T>(
 
       return result
     } catch (err) {
-      if (timeoutId) clearTimeout(timeoutId)
-
       let hurlError: HurlError
 
       if (err instanceof HurlError) {
         hurlError = err
-      } else if ((err as Error).name === 'AbortError' || (err as Error).name === 'TimeoutError') {
-        hurlError = isTimeoutAbort(err, timedOut)
-          ? buildTimeoutError(timeout ?? 0, requestId)
+      } else if (
+        (err as Error).name === 'AbortError' ||
+        (err as any).code === 'ABORT_ERR'
+      ) {
+        
+        hurlError = timedOut
+          ? buildTimeoutError(timeout!, requestId)
           : buildAbortError(requestId)
       } else {
         hurlError = buildNetworkError((err as Error).message, requestId)
@@ -193,6 +250,11 @@ export async function executeRequest<T>(
 
       if (debug) debugError(hurlError)
       throw hurlError
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
+      if (abortListener && options.signal) {
+        options.signal.removeEventListener('abort', abortListener)
+      }
     }
   }
 
