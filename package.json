@@ -1,6 +1,6 @@
 {
   "name": "@firekid/hurl",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Zero-dependency HTTP client for Node.js and edge runtimes. Built on fetch. The modern replacement for axios, request, got, node-fetch, and ky. Works on Cloudflare Workers, Vercel Edge, Deno, and Bun.",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -87,6 +87,7 @@
     "file-upload",
     "multipart",
     "stream",
+    "streaming",
     "json",
     "json-parser",
     "modern",
