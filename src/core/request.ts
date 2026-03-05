@@ -154,11 +154,15 @@ export async function executeRequest<T>(
 
     const controller = new AbortController()
 
-    
+    // FIX: Check if the signal is already aborted before attaching the listener to prevent hanging retries
     let abortListener: (() => void) | null = null
     if (options.signal) {
-      abortListener = () => controller.abort()
-      options.signal.addEventListener('abort', abortListener)
+      if (options.signal.aborted) {
+        controller.abort(options.signal.reason)
+      } else {
+        abortListener = () => controller.abort(options.signal.reason)
+        options.signal.addEventListener('abort', abortListener)
+      }
     }
 
     if (timeout) {
