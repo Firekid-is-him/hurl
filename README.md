@@ -9,7 +9,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/firekid-is-him/hurl?style=flat-square&logo=github&logoColor=white&color=FACC15)](https://github.com/firekid-is-him/hurl/stargazers)
 [![Website](https://img.shields.io/badge/website-hurl.firekidofficial.name.ng-black?style=flat-square&logo=googlechrome&logoColor=white)](https://hurl.firekidofficial.name.ng)
 
-**`@firekid/hurl`** is a modern, zero-dependency HTTP client for Node.js 18+, Cloudflare Workers, Vercel Edge Functions, Deno, and Bun — built on native fetch with retries, interceptors, auth helpers, in-memory caching, request deduplication, and full TypeScript support. Under 3KB gzipped.
+**`@firekid/hurl`** is a modern, zero-dependency HTTP client for Node.js 18+, Cloudflare Workers, Vercel Edge Functions, Deno, and Bun — built on native fetch with retries, interceptors, auth helpers, in-memory caching, request deduplication, and full TypeScript support.
 
 ```bash
 npm install @firekid/hurl
