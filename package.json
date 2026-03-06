@@ -1,18 +1,20 @@
 {
   "name": "@firekid/hurl",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Zero-dependency HTTP client for Node.js and edge runtimes. Built on fetch. The modern replacement for axios, request, got, node-fetch, and ky. Works on Cloudflare Workers, Vercel Edge, Deno, and Bun.",
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -98,9 +100,10 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "tsup": "^8.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.0.0",
-    "vitest": "^1.0.0",
-    "@types/node": "^20.0.0"
+    "vitest": "^1.0.0"
   }
 }
