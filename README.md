@@ -48,7 +48,7 @@ const [users, posts] = await hurl.all([
 | Feature | **hurl** | axios | ky | got | node-fetch |
 |---|:---:|:---:|:---:|:---:|:---:|
 | Zero dependencies | ✅ | ❌ | ✅ | ❌ | ✅ |
-| Bundle size | **~3KB** | ~35KB | ~5KB | ~45KB | ~8KB |
+| Bundle size | **~9KB** | ~35KB | ~5KB | ~45KB | ~8KB |
 | Node.js 18+ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Cloudflare Workers | ✅ | ❌ | ✅ | ❌ | ❌ |
 | Vercel Edge | ✅ | ❌ | ✅ | ❌ | ❌ |
