@@ -224,8 +224,14 @@ await hurl.get('/users', { cache: { ttl: 60000, bypass: true } })
 ```
 
 ```ts
-import { clearCache } from '@firekid/hurl'
+import { clearCache, invalidateCache } from '@firekid/hurl'
+
+// Clear the entire cache
 clearCache()
+
+// Invalidate a single entry by URL or custom key
+invalidateCache('https://api.example.com/users')
+invalidateCache('all-users') // if you used a custom cache key
 ```
 
 ---
@@ -269,19 +275,36 @@ await hurl.get('/large-file', {
 
 ## Proxy
 
-```ts
-await hurl.get('/users', {
-  proxy: { url: 'http://proxy.example.com:8080' }
-})
+Native fetch does not support programmatic proxy configuration out of the box. Proxy support depends on your Node.js version:
 
-await hurl.get('/users', {
-  proxy: {
-    url: 'socks5://proxy.example.com:1080',
-    auth: { username: 'user', password: 'pass' }
-  }
-})
+**Node.js 18** — install `undici@6` (v7 dropped Node 18 support), use `ProxyAgent`:
+```ts
+// npm install undici@6
+import { ProxyAgent, setGlobalDispatcher } from 'undici'
+setGlobalDispatcher(new ProxyAgent('http://proxy.example.com:8080'))
 ```
 
+**Node.js 20** — `undici` is bundled with `ProxyAgent` support:
+```ts
+import { ProxyAgent, setGlobalDispatcher } from 'undici'
+setGlobalDispatcher(new ProxyAgent('http://proxy.example.com:8080'))
+```
+
+**Node.js 22.3+** — supports `EnvHttpProxyAgent` which reads `HTTP_PROXY`/`HTTPS_PROXY` env vars automatically:
+```ts
+import { EnvHttpProxyAgent, setGlobalDispatcher } from 'undici'
+setGlobalDispatcher(new EnvHttpProxyAgent())
+// now set HTTP_PROXY=http://proxy.example.com:8080 in your env
+```
+
+**Node.js 24+** — native fetch respects env vars when `NODE_USE_ENV_PROXY=1` is set:
+```bash
+NODE_USE_ENV_PROXY=1 HTTP_PROXY=http://proxy.example.com:8080 node app.js
+```
+
+The `proxy` option in `HurlRequestOptions` is reserved for a future release where this will be handled automatically.
+
+---
 ---
 
 ## Parallel Requests
@@ -318,6 +341,15 @@ const adminApi = api.extend({
 ## Error Handling
 
 `hurl` throws a `HurlError` on HTTP errors (4xx/5xx), network failures, timeouts, aborts, and parse failures. It never resolves silently on bad status codes.
+
+If you want to handle 4xx/5xx responses yourself without a try/catch, set `throwOnError: false` — the response will resolve normally and you can check `res.status` yourself.
+
+```ts
+const res = await hurl.get('/users', { throwOnError: false })
+if (res.status === 404) {
+  console.log('not found')
+}
+```
 
 ```ts
 import hurl, { HurlError } from '@firekid/hurl'
