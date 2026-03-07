@@ -118,7 +118,7 @@ export async function executeRequest<T>(
 
   if (options.proxy ?? defaults.proxy) {
     if (debug) {
-      console.warn('[hurl] proxy option is not supported with native fetch. Use HTTP_PROXY/HTTPS_PROXY env vars in Node.js.')
+      console.warn('[hurl] proxy option is not yet implemented. Node 18: npm install undici@6, use ProxyAgent + setGlobalDispatcher. Node 20: use ProxyAgent + setGlobalDispatcher from undici. Node 22.3+: use EnvHttpProxyAgent + setGlobalDispatcher from undici. Node 24+: set NODE_USE_ENV_PROXY=1 with HTTP_PROXY env var. See README for details.')
     }
   }
 
