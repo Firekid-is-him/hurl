@@ -1,3 +1,18 @@
+## 1.0.7 — 2026-03-07
+
+### Fixed
+- `invalidateCache` was missing from package exports — it existed internally but was unreachable by users. Now properly exported from the main entry point.
+- `extend()` now correctly inherits parent interceptors into the child instance. Previously all interceptors were silently dropped on `extend()`.
+- Proxy documentation corrected with accurate per-version guidance: Node 18 requires `undici@6` + `ProxyAgent`, Node 20 uses bundled `ProxyAgent`, Node 22.3+ supports `EnvHttpProxyAgent`, Node 24+ supports `NODE_USE_ENV_PROXY=1`.
+
+### Added
+- `throwOnError` option documented in README — set to `false` to receive 4xx/5xx responses without throwing. Was implemented since 1.0.4 but never documented.
+
+### Tests
+- Added error interceptor tests — recovery from `HurlError`, re-throw behavior
+- Added `extend()` interceptor inheritance test
+- Added `create()` isolation test confirming interceptors are NOT inherited
+
 ## 1.0.5 — 2026-03-05
 
 ### Fixed
