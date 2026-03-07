@@ -188,4 +188,68 @@ describe('hurl', () => {
     expect(fetchArgs[1].headers['X-Injected']).toBe('true')
     expect(res.data).toEqual({ modified: true })
   })
+  it('error interceptor can recover from a HurlError and return a response', async () => {
+    fetchMock.mockReturnValueOnce(mockResponse({ error: 'Server Error' }, 500))
+
+    hurl.interceptors.error.use((err) => {
+      // Recover from 500 by returning a fallback response
+      if (err.status === 500) {
+        return {
+          data: { fallback: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          requestId: err.requestId,
+          timing: { start: 0, end: 0, duration: 0 },
+          fromCache: false,
+        }
+      }
+      return err
+    })
+
+    const res = await hurl.get('https://api.example.com/error-intercept')
+    expect(res.data).toEqual({ fallback: true })
+    expect(res.status).toBe(200)
+  })
+
+  it('error interceptor re-throws if it returns a HurlError', async () => {
+    fetchMock.mockReturnValueOnce(mockResponse({ error: 'Not Found' }, 404))
+
+    hurl.interceptors.error.use((err) => {
+      // Just return the error unchanged — should still throw
+      return err
+    })
+
+    await expect(hurl.get('https://api.example.com/rethrow')).rejects.toThrowError(HurlError)
+  })
+
+  it('extend() inherits parent interceptors', async () => {
+    fetchMock.mockReturnValueOnce(mockResponse({ data: true }))
+
+    hurl.interceptors.request.use((url, options) => ({
+      url,
+      options: { ...options, headers: { ...options.headers, 'X-Parent': 'true' } }
+    }))
+
+    const child = hurl.extend({ baseUrl: 'https://api.example.com' })
+    await child.get('/data')
+
+    const fetchArgs = fetchMock.mock.calls[0]
+    expect(fetchArgs[1].headers['X-Parent']).toBe('true')
+  })
+
+  it('create() does NOT inherit parent interceptors', async () => {
+    fetchMock.mockReturnValueOnce(mockResponse({ data: true }))
+
+    hurl.interceptors.request.use((url, options) => ({
+      url,
+      options: { ...options, headers: { ...options.headers, 'X-Parent': 'true' } }
+    }))
+
+    const isolated = hurl.create({ baseUrl: 'https://api.example.com' })
+    await isolated.get('/data')
+
+    const fetchArgs = fetchMock.mock.calls[0]
+    expect(fetchArgs[1].headers['X-Parent']).toBeUndefined()
+  })
 })
