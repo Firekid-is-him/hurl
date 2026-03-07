@@ -15,7 +15,7 @@ import {
   runResponseInterceptors,
   runErrorInterceptors,
 } from './features/interceptors.js'
-import { clearCache } from './features/cache.js'
+import { clearCache, invalidateCache } from './features/cache.js'
 
 function createInstance(initialDefaults: HurlDefaults = {}): HurlInstance {
   let defaults: HurlDefaults = { ...initialDefaults }
@@ -119,11 +119,17 @@ function createInstance(initialDefaults: HurlDefaults = {}): HurlInstance {
     },
 
     create(newDefaults?: HurlDefaults) {
-      return createInstance({ ...defaults, ...newDefaults })
+      const child = createInstance({ ...defaults, ...newDefaults })
+      return child
     },
 
     extend(newDefaults?: HurlDefaults) {
-      return createInstance({ ...defaults, ...newDefaults })
+      const child = createInstance({ ...defaults, ...newDefaults })
+      // Inherit parent interceptors into the child instance
+      requestInterceptors.getAll().forEach(fn => child.interceptors.request.use(fn))
+      responseInterceptors.getAll().forEach(fn => child.interceptors.response.use(fn))
+      errorInterceptors.getAll().forEach(fn => child.interceptors.error.use(fn))
+      return child
     },
   }
 
@@ -133,7 +139,7 @@ function createInstance(initialDefaults: HurlDefaults = {}): HurlInstance {
 const hurl = createInstance()
 
 export default hurl
-export { HurlError, createInstance, clearCache }
+export { HurlError, createInstance, clearCache, invalidateCache }
 export type {
   HurlRequestOptions,
   HurlDefaults,
