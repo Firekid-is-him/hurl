@@ -23,7 +23,34 @@ export type CacheConfig = {
   bypass?: boolean
 }
 
+export type CircuitBreakerConfig = {
+  threshold: number
+  cooldown: number
+  key?: string
+  fallback?: () => unknown
+}
+
 export type ProgressCallback = (e: { loaded: number; total: number; percent: number }) => void
+
+export type SSEEvent = {
+  data: string
+  event: string
+  id: string
+  retry?: number
+}
+
+export type SSEOptions = {
+  method?: 'GET' | 'POST'
+  headers?: Record<string, string>
+  body?: unknown
+  query?: Record<string, string | number | boolean>
+  auth?: AuthConfig
+  signal?: AbortSignal
+  onOpen?: () => void
+  onMessage: (event: SSEEvent) => void
+  onError?: (error: Error) => void
+  onDone?: () => void
+}
 
 export type HurlRequestOptions = {
   method?: Method
@@ -35,6 +62,7 @@ export type HurlRequestOptions = {
   auth?: AuthConfig
   proxy?: ProxyConfig
   cache?: CacheConfig
+  circuitBreaker?: CircuitBreakerConfig
   signal?: AbortSignal
   followRedirects?: boolean
   onUploadProgress?: ProgressCallback
@@ -73,7 +101,13 @@ export type ErrorInterceptor = (
   error: HurlError
 ) => Promise<HurlError | HurlResponse> | HurlError | HurlResponse
 
-export type HurlErrorType = 'HTTP_ERROR' | 'NETWORK_ERROR' | 'TIMEOUT_ERROR' | 'ABORT_ERROR' | 'PARSE_ERROR'
+export type HurlErrorType =
+  | 'HTTP_ERROR'
+  | 'NETWORK_ERROR'
+  | 'TIMEOUT_ERROR'
+  | 'ABORT_ERROR'
+  | 'PARSE_ERROR'
+  | 'CIRCUIT_OPEN'
 
 export class HurlError extends Error {
   type: HurlErrorType
@@ -115,6 +149,7 @@ export type HurlInstance = {
   head(url: string, options?: HurlRequestOptions): Promise<HurlResponse<void>>
   options<T = unknown>(url: string, options?: HurlRequestOptions): Promise<HurlResponse<T>>
   request<T = unknown>(url: string, options?: HurlRequestOptions): Promise<HurlResponse<T>>
+  sse(url: string, options: SSEOptions): { close(): void }
   all<T extends unknown[]>(requests: { [K in keyof T]: Promise<T[K]> }): Promise<T>
   defaults: {
     set(d: HurlDefaults): void
