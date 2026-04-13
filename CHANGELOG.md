@@ -9,7 +9,7 @@
 - Handles the `data: [DONE]` sentinel used by OpenAI, Anthropic, and other AI APIs — fires `onDone` and closes cleanly
 - Returns `{ close() }` synchronously so you can cancel the stream at any time
 - Respects an external `AbortSignal` passed via `options.signal`
-- `SSEOptions` and `SSEEvent` types are exported
+- `SSEOptions` and `SSEEvent` types are exported.
 
 **Circuit Breaker**
 
