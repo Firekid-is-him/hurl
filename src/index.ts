@@ -7,6 +7,9 @@ import {
   ResponseInterceptor,
   ErrorInterceptor,
   HurlError,
+  SSEOptions,
+  SSEEvent,
+  CircuitBreakerConfig,
 } from './types/index.js'
 import { executeRequest } from './core/request.js'
 import {
@@ -16,6 +19,8 @@ import {
   runErrorInterceptors,
 } from './features/interceptors.js'
 import { clearCache, invalidateCache } from './features/cache.js'
+import { executeSSE } from './features/sse.js'
+import { getCircuitStats } from './features/circuitBreaker.js'
 
 function createInstance(initialDefaults: HurlDefaults = {}): HurlInstance {
   let defaults: HurlDefaults = { ...initialDefaults }
@@ -87,6 +92,10 @@ function createInstance(initialDefaults: HurlDefaults = {}): HurlInstance {
       return request<T>(url, { ...options, method: 'OPTIONS' })
     },
 
+    sse(url: string, options: SSEOptions) {
+      return executeSSE(url, options, defaults)
+    },
+
     all<T extends unknown[]>(requests: { [K in keyof T]: Promise<T[K]> }) {
       return Promise.all(requests) as Promise<T>
     },
@@ -119,13 +128,11 @@ function createInstance(initialDefaults: HurlDefaults = {}): HurlInstance {
     },
 
     create(newDefaults?: HurlDefaults) {
-      const child = createInstance({ ...defaults, ...newDefaults })
-      return child
+      return createInstance({ ...defaults, ...newDefaults })
     },
 
     extend(newDefaults?: HurlDefaults) {
       const child = createInstance({ ...defaults, ...newDefaults })
-      // Inherit parent interceptors into the child instance
       requestInterceptors.getAll().forEach(fn => child.interceptors.request.use(fn))
       responseInterceptors.getAll().forEach(fn => child.interceptors.response.use(fn))
       errorInterceptors.getAll().forEach(fn => child.interceptors.error.use(fn))
@@ -139,7 +146,7 @@ function createInstance(initialDefaults: HurlDefaults = {}): HurlInstance {
 const hurl = createInstance()
 
 export default hurl
-export { HurlError, createInstance, clearCache, invalidateCache }
+export { HurlError, createInstance, clearCache, invalidateCache, getCircuitStats }
 export type {
   HurlRequestOptions,
   HurlDefaults,
@@ -148,4 +155,7 @@ export type {
   RequestInterceptor,
   ResponseInterceptor,
   ErrorInterceptor,
+  SSEOptions,
+  SSEEvent,
+  CircuitBreakerConfig,
 }
