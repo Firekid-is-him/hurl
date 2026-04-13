@@ -1,6 +1,6 @@
 {
   "name": "@firekid/hurl",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "description": "Zero-dependency HTTP client for Node.js and edge runtimes. Built on fetch. The modern replacement for axios, request, got, node-fetch, and ky. Works on Cloudflare Workers, Vercel Edge, Deno, and Bun.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
