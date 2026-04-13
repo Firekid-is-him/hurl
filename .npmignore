@@ -1,12 +1,12 @@
 src
 tests
-dist_cjs
-dist_esm
 *.map
 .gitignore
-.eslintrc*
-.prettierrc*
+.github
 tsconfig.json
+tsup.config.ts
 vitest.config.ts
+codegen_instructions.md
 llms.txt
+CHANGELOG.md
 README.md
