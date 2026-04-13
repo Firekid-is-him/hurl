@@ -1,3 +1,32 @@
+## 1.1.0 — 2026-04-13
+
+### Added
+
+**SSE (Server-Sent Events)**
+
+- `hurl.sse(url, options)` — fetch-based SSE client that works where native `EventSource` cannot: supports POST requests, custom headers, Bearer/Basic/API key auth, `baseUrl`, and query params
+- Parses the full `text/event-stream` wire format — `data`, `event`, `id`, and `retry` fields
+- Handles the `data: [DONE]` sentinel used by OpenAI, Anthropic, and other AI APIs — fires `onDone` and closes cleanly
+- Returns `{ close() }` synchronously so you can cancel the stream at any time
+- Respects an external `AbortSignal` passed via `options.signal`
+- `SSEOptions` and `SSEEvent` types are exported
+
+**Circuit Breaker**
+
+- `circuitBreaker` option on both per-request options and instance defaults
+- Three-state machine: CLOSED → OPEN → HALF_OPEN → CLOSED
+- `threshold` — number of consecutive failures before the circuit opens
+- `cooldown` — how long (ms) to wait before allowing a probe request through
+- `key` — optional custom key for the breaker; defaults to the URL origin so all requests to the same host share one breaker
+- `fallback` — optional function that returns a value to use when the circuit is open instead of throwing
+- When the circuit is open and no fallback is set, throws a `HurlError` with type `CIRCUIT_OPEN`
+- Aborted requests and circuit-open errors do not count as failures
+- `getCircuitStats(key)` exported from the main entry point for observability
+- `CIRCUIT_OPEN` added to the `HurlErrorType` union
+
+
+---
+
 ## 1.0.7 — 2026-03-07
 
 ### Fixed
@@ -26,8 +55,6 @@
 
 ### Contributors
 - HeavstalTech: signal fix, cache hardening, test suite
-
-
 
 ## 1.0.4
 
