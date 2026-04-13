@@ -1,5 +1,11 @@
 import { HurlRequestOptions, HurlResponse, HurlDefaults, HurlError } from '../types/index.js'
-import { buildHttpError, buildNetworkError, buildTimeoutError, buildAbortError } from './errors.js'
+import {
+  buildHttpError,
+  buildNetworkError,
+  buildTimeoutError,
+  buildAbortError,
+  buildCircuitOpenError,
+} from './errors.js'
 import { parseResponseBody, buildResponse, parseHeaders } from './response.js'
 import { applyAuth } from '../features/auth.js'
 import { normalizeRetry, shouldRetry, waitForRetry } from '../features/retry.js'
@@ -7,6 +13,7 @@ import { getCacheKey, getFromCache, setInCache } from '../features/cache.js'
 import { getInFlight, setInFlight } from '../features/dedup.js'
 import { debugRequest, debugResponse, debugError } from '../features/debug.js'
 import { wrapBodyWithUploadProgress } from '../features/progress.js'
+import { checkCircuit, recordSuccess, recordFailure } from '../features/circuitBreaker.js'
 
 function generateId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -15,7 +22,7 @@ function generateId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
-function buildUrl(base: string, url: string, query?: Record<string, string | number | boolean>): string {
+export function buildUrl(base: string, url: string, query?: Record<string, string | number | boolean>): string {
   let fullUrl: string
 
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -55,7 +62,7 @@ function isStreamLike(body: unknown): boolean {
   return false
 }
 
-function buildHeaders(
+export function buildRequestHeaders(
   options: HurlRequestOptions,
   defaults: HurlDefaults
 ): Record<string, string> {
@@ -66,7 +73,6 @@ function buildHeaders(
 
   const body = options.body
 
-  // Only set application/json for plain objects and arrays.
   if (
     body !== null &&
     body !== undefined &&
@@ -88,11 +94,18 @@ function buildBody(body: unknown): BodyInit | undefined {
   if (body instanceof Blob) return body
   if (body instanceof ArrayBuffer) return body
   if (typeof body === 'string') return body
-  
   if (body instanceof ReadableStream) return body as BodyInit
   if (typeof (body as any).pipe === 'function') return body as unknown as BodyInit
-  
   return JSON.stringify(body)
+}
+
+function getCircuitKey(url: string, customKey?: string): string {
+  if (customKey) return customKey
+  try {
+    return new URL(url).origin
+  } catch {
+    return url
+  }
 }
 
 export async function executeRequest<T>(
@@ -108,7 +121,7 @@ export async function executeRequest<T>(
   const throwOnError = options.throwOnError ?? defaults.throwOnError ?? true
 
   const query = { ...defaults.query, ...options.query } as Record<string, string | number | boolean>
-  const headers = buildHeaders(options, defaults)
+  const headers = buildRequestHeaders(options, defaults)
   const timeout = options.timeout ?? defaults.timeout
 
   const auth = options.auth ?? defaults.auth
@@ -138,6 +151,32 @@ export async function executeRequest<T>(
   if (deduplicate && method === 'GET') {
     const inflight = getInFlight(fullUrl)
     if (inflight) return inflight as Promise<HurlResponse<T>>
+  }
+
+  const cbConfig = options.circuitBreaker ?? defaults.circuitBreaker
+  const cbKey = cbConfig ? getCircuitKey(fullUrl, cbConfig.key) : ''
+
+  if (cbConfig) {
+    const state = checkCircuit(cbKey, cbConfig)
+
+    if (state === 'OPEN') {
+      if (debug) console.warn(`[hurl] circuit breaker OPEN for "${cbKey}", fast-failing`)
+
+      if (cbConfig.fallback) {
+        const end = Date.now()
+        return {
+          data: cbConfig.fallback() as T,
+          status: 0,
+          statusText: 'Circuit Open',
+          headers: {},
+          requestId,
+          timing: { start, end, duration: end - start },
+          fromCache: false,
+        }
+      }
+
+      throw buildCircuitOpenError(cbKey, requestId)
+    }
   }
 
   if (debug) debugRequest(fullUrl, { ...options, method })
@@ -253,7 +292,22 @@ export async function executeRequest<T>(
     }
   }
 
-  const promise = run(0)
+  const promise = cbConfig
+    ? run(0).then(
+        (result) => { recordSuccess(cbKey); return result },
+        (err) => {
+          // Don't count aborts or circuit errors against the breaker.
+          if (
+            err instanceof HurlError &&
+            err.type !== 'ABORT_ERROR' &&
+            err.type !== 'CIRCUIT_OPEN'
+          ) {
+            recordFailure(cbKey, cbConfig)
+          }
+          throw err
+        }
+      )
+    : run(0)
 
   if (deduplicate && method === 'GET') {
     setInFlight(fullUrl, promise as Promise<HurlResponse>)
