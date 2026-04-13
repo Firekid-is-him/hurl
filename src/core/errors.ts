@@ -38,3 +38,11 @@ export function buildParseError(message: string, requestId: string) {
     requestId,
   })
 }
+
+export function buildCircuitOpenError(key: string, requestId: string) {
+  return new HurlError({
+    message: `Circuit breaker is open for "${key}"`,
+    type: 'CIRCUIT_OPEN',
+    requestId,
+  })
+}
